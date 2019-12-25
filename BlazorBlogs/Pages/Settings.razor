@@ -1,0 +1,203 @@
+﻿@page "/settings"
+@using Microsoft.AspNetCore.Authorization;
+@using Microsoft.AspNetCore.Identity;
+@using BlazorBlogs.Data;
+@using BlazorBlogs.Data.Models;
+@inject UserManager<ApplicationUser> _UserManager
+@inject RoleManager<IdentityRole> _RoleManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IConfiguration _configuration
+@inject IToastService toastService
+
+@inherits OwningComponentBase<GeneralSettingsService>
+
+<h1>Settings</h1>
+<!-- AuthorizeView allows us to only show sections of the page -->
+<!-- based on the security on the current user -->
+<AuthorizeView>
+    <!-- Show this section if the user is logged in -->
+    <Authorized>
+        @if (@context.User.IsInRole(ADMINISTRATION_ROLE))
+        {
+            <table class="table">
+                <tbody>
+                    <tr>
+                        <td>Application Name</td>
+                        <td>
+                            <input class="form-control" type="text"
+                                   @bind="objGeneralSettings.ApplicationName" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Allow Registration</td>
+                        <td>
+                            <select class="form-control"
+                                    @bind="@AllowRegistration">
+                                @foreach (var option in OptionsTrueFalse)
+                                {
+                                    <option value="@option">
+                                        @option
+                                    </option>
+                                }
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Verified Registration</td>
+                        <td>
+                            <select class="form-control"
+                                    @bind="@VerifiedRegistration">
+                                @foreach (var option in OptionsTrueFalse)
+                                {
+                                    <option value="@option">
+                                        @option
+                                    </option>
+                                }
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>SMTP Server</td>
+                        <td>
+                            <input class="form-control" type="text"
+                                   @bind="objGeneralSettings.SMTPServer" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>SMTP Authentication</td>
+                        <td>
+                            <select class="form-control"
+                                    @bind="@SMTPAuthentication">
+                                @foreach (var option in OptionsSMTP)
+                                {
+                                    <option value="@option">
+                                        @option
+                                    </option>
+                                }
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>SMTP Secure</td>
+                        <td>
+                            <select class="form-control"
+                                    @bind="@SMTPSecure">
+                                @foreach (var option in OptionsTrueFalse)
+                                {
+                                    <option value="@option">
+                                        @option
+                                    </option>
+                                }
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>SMTP User Name</td>
+                        <td>
+                            <input class="form-control" type="text"
+                                   @bind="objGeneralSettings.SMTPUserName" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>SMTP Password</td>
+                        <td>
+                            <input class="form-control" type="text"
+                                   @bind="objGeneralSettings.SMTPPassword" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>SMTP From Email</td>
+                        <td>
+                            <input class="form-control" type="text"
+                                   @bind="objGeneralSettings.SMTPFromEmail" />
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <br />
+            <button class="btn btn-success" @onclick="Save">Save</button>
+        }
+    </Authorized>
+    <!-- Show this section if the user is not logged in -->
+    <NotAuthorized>
+        <p>You're not signed in.</p>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    // AuthenticationState is available as a CascadingParameter
+    [CascadingParameter]
+    private Task<AuthenticationState> authenticationStateTask { get; set; }
+
+    public System.Security.Claims.ClaimsPrincipal CurrentUser;
+    string ADMINISTRATION_ROLE = "Administrators";
+
+    GeneralSettings objGeneralSettings = new GeneralSettings();
+    List<string> OptionsTrueFalse = new List<string>() { "True", "False" };
+    List<string> OptionsSMTP = new List<string>() { "Anonymous", "Basic", "NTLM" };
+    string AllowRegistration = "";
+    string VerifiedRegistration = "";
+    string SMTPSecure = "";
+    string SMTPAuthentication = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Get the current user
+        CurrentUser = (await authenticationStateTask).User;
+
+        await LoadGeneralSettingsAsync();
+    }
+
+    protected async Task LoadGeneralSettingsAsync()
+    {
+        objGeneralSettings = await @Service.GetGeneralSettingsAsync();
+        AllowRegistration = objGeneralSettings.AllowRegistration.ToString();
+        VerifiedRegistration = objGeneralSettings.VerifiedRegistration.ToString();
+        SMTPSecure = objGeneralSettings.SMTPSecure.ToString();
+
+        switch (objGeneralSettings.SMTPAuthendication.Trim())
+        {
+            case "":
+            case "0":
+                SMTPAuthentication = "Anonymous";
+                break;
+            case "1":
+                SMTPAuthentication = "Basic";
+                break;
+            case "2":
+                SMTPAuthentication = "NTLM";
+                break;
+        }
+    }
+
+    public async Task Save()
+    {
+        var AllowRegistrationResult = @Service.UpdateAllowRegistrationAsync(Convert.ToBoolean(AllowRegistration));
+        var VerifiedRegistrationResult = @Service.UpdateVerifiedRegistrationAsync(Convert.ToBoolean(VerifiedRegistration));
+        var SMTPSecureResult = @Service.UpdateSMTPSecureAsync(Convert.ToBoolean(SMTPSecure));
+
+        var UpdateApplicationNameResult = @Service.UpdateApplicationNameAsync(objGeneralSettings.ApplicationName);
+        var UpdateSMTPServerResult = @Service.UpdateSMTPServerAsync(objGeneralSettings.SMTPServer);
+        var UpdateSMTPUserNameResult = @Service.UpdateSMTPUserNameAsync(objGeneralSettings.SMTPUserName);
+        var UpdateSMTPPasswordResult = @Service.UpdateSMTPPasswordAsync(objGeneralSettings.SMTPPassword);
+        var UpdateSMTPFromEmailResult = @Service.UpdateSMTPFromEmailAsync(objGeneralSettings.SMTPFromEmail);
+
+        switch (SMTPAuthentication)
+        {
+            case "Anonymous":
+                objGeneralSettings.SMTPAuthendication = "0";
+                break;
+            case "Basic":
+                objGeneralSettings.SMTPAuthendication = "1";
+                break;
+            case "NTLM":
+                objGeneralSettings.SMTPAuthendication = "2";
+                break;
+        }
+
+        var UpdateSMTPAuthendicationResult = @Service.UpdateSMTPAuthenticationAsync(objGeneralSettings.SMTPAuthendication);
+
+        objGeneralSettings = await @Service.GetGeneralSettingsAsync();
+        toastService.ShowSuccess("", "Saved!");
+    }
+}

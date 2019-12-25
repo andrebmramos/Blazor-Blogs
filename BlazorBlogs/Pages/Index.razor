@@ -1,50 +1,37 @@
 ﻿@page "/"
-@using Microsoft.AspNetCore.Authorization;
+@using Microsoft.AspNetCore.Http
 @using Microsoft.AspNetCore.Identity;
 @using BlazorBlogs.Data;
 @using BlazorBlogs.Data.Models;
-@inject UserManager<IdentityUser> _UserManager
+@inject UserManager<ApplicationUser> _UserManager
 @inject RoleManager<IdentityRole> _RoleManager
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject IConfiguration _configuration
+@inject IHttpContextAccessor httpContextAccessor
 @*
     Using OwningComponentBase ensures that the service and related services
     that share its scope are disposed with the component.
-    Otherwise DbContext in ForecastService will live for the life of the
+    Otherwise DbContext will live for the life of the
     connection, which may be problematic if clients stay
     connected for a long time.
 
-    We access WeatherForecastService using @Service
+    We access BlogsService using @Service
 *@
 @inherits OwningComponentBase<BlogsService>
-
-<h1>Blazor Blogs</h1>
-
 <!-- Show the blogs -->
-<table class="table">
-    <thead>
-        <tr>
-            <th>Date</th>
-            <th>Blog Title</th>
-            <th></th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var blog in colBlogs.Blogs)
-        {
-            <tr>
-                <td>@blog.BlogDate.ToShortDateString()</td>
-                <td>@blog.BlogTitle</td>
-                <td>
-                    <button class="btn btn-primary"
-                            @onclick="(() => ViewBlog(blog))">
-                        View
-                    </button>
-                </td>
-            </tr>
-        }
-    </tbody>
-</table>
+
+@foreach (var blog in colBlogs.Blogs)
+{
+    <button class="btn btn-link"
+            @onclick="(() => ViewBlog(blog))">
+        <h2>@blog.BlogDate.ToShortDateString() - @blog.BlogTitle</h2>
+    </button>
+    <div class="form-group">
+        @((MarkupString)blog.BlogSummary)
+    </div>
+    <hr />
+}
+<br />
 <button class="btn btn-warning"
         @onclick="Previous">
     <b>&#x3C;</b>
@@ -60,10 +47,11 @@
 {
     <!-- This is the popup to view the selected Blog -->
     <div class="modal" tabindex="-1" style="display:block" role="dialog">
-        <div class="modal-dialog">
+        <div class="modal-dialog-scrollable modal-dialog-centered">
             <div class="modal-content">
+                <i>@SelectedBlog.BlogDate.ToShortDateString()</i>
                 <div class="modal-header">
-                    <h3 class="modal-title">View Blog</h3>
+                    <h3 class="modal-title">@SelectedBlog.BlogTitle</h3>
                     <!-- Button to close the popup -->
                     <button type="button" class="close"
                             @onclick="ClosePopup">
@@ -72,18 +60,9 @@
                 </div>
                 <div class="modal-body">
                     <div class="form-group">
-                        <p>@SelectedBlog.BlogDate</p>
+                        @((MarkupString)SelectedBlog.BlogContent)
                     </div>
-                    <div class="form-group">
-                        <p>@SelectedBlog.BlogTitle</p>
-                    </div>
-                    <div class="form-group">
-                        <p>@SelectedBlog.BlogSummary</p> 
-                    </div>
-                    <div class="form-group">                        
-                     @((MarkupString)SelectedBlog.BlogContent)           
-                    </div>
-                    <br /><br />                   
+                    <br /><br />
                 </div>
             </div>
         </div>
@@ -92,6 +71,10 @@
 <br />
 <br />
 @code {
+    // AuthenticationState is available as a CascadingParameter
+    [CascadingParameter]
+    private Task<AuthenticationState> authenticationStateTask { get; set; }
+
     string ADMINISTRATION_ROLE = "Administrators";
     int CurrentPage = 1;
     BlogsPaged colBlogs =
@@ -149,7 +132,7 @@
         ShowPopup = false;
     }
 
-    void ViewBlog(Blogs Blog)
+    async Task ViewBlog(Blogs Blog)
     {
         // Set the selected Blog
         // as the current Blog
@@ -157,6 +140,8 @@
 
         // Open the Popup
         ShowPopup = true;
+
+        await LogAction($"View Blog #{Blog.BlogId}");
     }
 
     async Task Previous()
@@ -172,5 +157,19 @@
     {
         CurrentPage = CurrentPage + 1;
         colBlogs = await @Service.GetBlogsAsync(CurrentPage);
+    }
+
+    private async Task LogAction(string strAction)
+    {
+        // Get the current user
+        var CurrentUser = (await authenticationStateTask).User;
+
+        BlazorBlogs.Data.Models.Logs objLog = new Data.Models.Logs();
+        objLog.LogDate = DateTime.Now;
+        objLog.LogAction = strAction;
+        objLog.LogUserName = (CurrentUser.Identity != null) ? CurrentUser.Identity.Name : "";
+        objLog.LogIpaddress = httpContextAccessor.HttpContext.Connection?.RemoteIpAddress.ToString();
+
+        var result = await @Service.CreateLogAsync(objLog);
     }
 }

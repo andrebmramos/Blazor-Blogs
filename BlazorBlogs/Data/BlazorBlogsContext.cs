@@ -17,7 +17,12 @@ namespace BlazorBlogs.Data
         {
         }
 
+        public virtual DbSet<BlogCategory> BlogCategory { get; set; }
         public virtual DbSet<Blogs> Blogs { get; set; }
+        public virtual DbSet<Categorys> Categorys { get; set; }
+        public virtual DbSet<Comment> Comment { get; set; }
+        public virtual DbSet<Logs> Logs { get; set; }
+        public virtual DbSet<Settings> Settings { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
@@ -30,6 +35,19 @@ namespace BlazorBlogs.Data
         {
             modelBuilder.HasAnnotation("ProductVersion", "2.2.0-rtm-35687");
 
+            modelBuilder.Entity<BlogCategory>(entity =>
+            {
+                entity.HasOne(d => d.Blog)
+                    .WithMany(p => p.BlogCategory)
+                    .HasForeignKey(d => d.BlogId)
+                    .HasConstraintName("FK_BlogCategory_Blogs");
+
+                entity.HasOne(d => d.Category)
+                    .WithMany(p => p.BlogCategory)
+                    .HasForeignKey(d => d.CategoryId)
+                    .HasConstraintName("FK_BlogCategory_Categorys");
+            });
+
             modelBuilder.Entity<Blogs>(entity =>
             {
                 entity.HasKey(e => e.BlogId);
@@ -38,9 +56,7 @@ namespace BlazorBlogs.Data
 
                 entity.Property(e => e.BlogDate).HasColumnType("datetime");
 
-                entity.Property(e => e.BlogSummary)
-                    .IsRequired()
-                    .HasMaxLength(500);
+                entity.Property(e => e.BlogSummary).IsRequired();
 
                 entity.Property(e => e.BlogTitle)
                     .IsRequired()
@@ -49,6 +65,83 @@ namespace BlazorBlogs.Data
                 entity.Property(e => e.BlogUserName)
                     .IsRequired()
                     .HasMaxLength(500);
+            });
+
+            modelBuilder.Entity<Categorys>(entity =>
+            {
+                entity.HasKey(e => e.CategoryId);
+
+                entity.Property(e => e.Description).HasMaxLength(500);
+
+                entity.Property(e => e.Title)
+                    .IsRequired()
+                    .HasMaxLength(500);
+            });
+
+            modelBuilder.Entity<Comment>(entity =>
+            {
+                entity.Property(e => e.Comment1)
+                    .IsRequired()
+                    .HasColumnName("Comment")
+                    .HasMaxLength(4000);
+
+                entity.Property(e => e.CommentCreated).HasColumnType("datetime");
+
+                entity.Property(e => e.CommentIpaddress)
+                    .IsRequired()
+                    .HasColumnName("CommentIPAddress")
+                    .HasMaxLength(500);
+
+                entity.Property(e => e.CommentUpdated).HasColumnType("datetime");
+
+                entity.Property(e => e.CommentUserId)
+                    .IsRequired()
+                    .HasColumnName("CommentUserID")
+                    .HasMaxLength(500);
+
+                entity.HasOne(d => d.Blog)
+                    .WithMany(p => p.Comment)
+                    .HasForeignKey(d => d.BlogId)
+                    .HasConstraintName("FK_Comment_Blogs");
+
+                entity.HasOne(d => d.ParentComment)
+                    .WithMany(p => p.InverseParentComment)
+                    .HasForeignKey(d => d.ParentCommentId)
+                    .HasConstraintName("FK_Comment_Comment");
+            });
+
+            modelBuilder.Entity<Logs>(entity =>
+            {
+                entity.HasKey(e => e.LogId);
+
+                entity.Property(e => e.LogAction)
+                    .IsRequired()
+                    .HasMaxLength(50);
+
+                entity.Property(e => e.LogDate).HasColumnType("datetime");
+
+                entity.Property(e => e.LogIpaddress)
+                    .IsRequired()
+                    .HasColumnName("LogIPAddress")
+                    .HasMaxLength(500);
+
+                entity.Property(e => e.LogUserName).HasMaxLength(500);
+            });
+
+            modelBuilder.Entity<Settings>(entity =>
+            {
+                entity.HasKey(e => e.SettingId)
+                    .HasName("PK_ADefHelpDesk_Settings");
+
+                entity.Property(e => e.SettingId).HasColumnName("SettingID");
+
+                entity.Property(e => e.SettingName)
+                    .IsRequired()
+                    .HasMaxLength(150);
+
+                entity.Property(e => e.SettingValue)
+                    .IsRequired()
+                    .HasMaxLength(250);
             });
 
             OnModelCreatingPartial(modelBuilder);

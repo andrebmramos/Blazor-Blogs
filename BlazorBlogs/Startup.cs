@@ -15,6 +15,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using BlazorBlogs.Areas.Identity;
 using BlazorBlogs.Data;
+using BlazorBlogs.Data.Models;
+using Blazored.Toast;
 
 namespace BlazorBlogs
 {
@@ -39,7 +41,7 @@ namespace BlazorBlogs
             options.UseSqlServer(
                 Configuration.GetConnectionString("DefaultConnection")));
 
-            services.AddDefaultIdentity<IdentityUser>()
+            services.AddDefaultIdentity<ApplicationUser>()
                 .AddRoles<IdentityRole>()
                 .AddEntityFrameworkStores<ApplicationDbContext>();
 
@@ -51,6 +53,9 @@ namespace BlazorBlogs
                 RevalidatingIdentityAuthenticationStateProvider<IdentityUser>>();
 
             services.AddScoped<BlogsService>();
+            services.AddScoped<GeneralSettingsService>();
+            services.AddHttpContextAccessor();
+            services.AddBlazoredToast();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
